@@ -18,7 +18,7 @@ pub struct Args {
 }
 
 /// The different key sizes available
-#[derive(ValueEnum, Debug, Clone)]
+#[derive(ValueEnum, Debug, Clone, Copy)]
 pub enum KeySize {
     /// 256 bits
     #[value(name = "256")]
@@ -31,6 +31,26 @@ pub enum KeySize {
     /// 512 bits
     #[value(name = "512")]
     Bits512 = 512,
+}
+
+impl KeySize {
+    /// Get the block size of the algorithm in bytes
+    pub fn block_size(&self) -> usize {
+        match self {
+            KeySize::Bits256 => 32,
+            KeySize::Bits384 => 48,
+            KeySize::Bits512 => 64,
+        }
+    }
+
+    /// Get the number of rounds to use
+    pub fn rounds(&self) -> usize {
+        match self {
+            KeySize::Bits256 => 2,
+            KeySize::Bits384 => 4,
+            KeySize::Bits512 => 8,
+        }
+    }
 }
 
 /// The action to take.
