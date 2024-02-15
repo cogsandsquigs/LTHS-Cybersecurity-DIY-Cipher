@@ -46,6 +46,8 @@ fn encrypt(key: String, input: String, key_size: KeySize) {
     for round_key in round_keys {
         for block in input.iter_mut() {
             *block = xor(block, &round_key);
+
+            // TODO: More encryption!
         }
     }
 
