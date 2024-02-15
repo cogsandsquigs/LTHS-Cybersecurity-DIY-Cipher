@@ -20,8 +20,7 @@ fn encrypt(key: String, input: String, key_size: KeySize) {
 
     let block_size = key_size.block_size();
     let rounds = key_size.rounds();
-    let master_key = get_master_key(key, key_size);
-    let round_keys = derive_subkeys(master_key, key_size);
+
     let mut input: Vec<Vec<u8>> = input
         .as_bytes()
         .chunks(block_size)
@@ -41,13 +40,17 @@ fn encrypt(key: String, input: String, key_size: KeySize) {
         })
         .collect();
 
+    let master_key = get_master_key(key, key_size); // The master key is the hash of the input key
+    let block_keys = derive_subkeys(master_key, block_size, input.len(), 0); // One key for each block
+
     println!("Input: {:?}", input);
 
-    for round_key in round_keys {
-        for block in input.iter_mut() {
-            *block = xor(block, &round_key);
+    for (block_idx, (block, block_keys)) in input.iter_mut().zip(block_keys).enumerate() {
+        // Get the round keys for this block. Note that they are offset by XORing with the block index.
+        let round_keys = derive_subkeys(block_keys, block_size, rounds, block_idx);
 
-            // TODO: More encryption!
+        for round_key in round_keys {
+            *block = xor(block, &round_key);
         }
     }
 
@@ -70,32 +73,40 @@ fn get_master_key(key: String, key_size: KeySize) -> Vec<u8> {
     master_key
 }
 
-// Derives the subkeys from the master key
-fn derive_subkeys(master_key: Vec<u8>, key_size: KeySize) -> Vec<Vec<u8>> {
-    let block_size = key_size.block_size();
-    let rounds = key_size.rounds();
-    let mut subkeys = vec![];
-    let mut prev_subkey = master_key;
+// Derives the subkeys from the master key via blake3 at sizes 256, 384, and 512 bits
+fn derive_subkeys(
+    master_key: Vec<u8>,
+    block_size: usize,
+    count: usize,
+    offset: usize,
+) -> Vec<Vec<u8>> {
+    // Get the offset bytes as the little-endian representation of the offset, padded with 0s on the right
+    // to the block size.
+    let mut offset_bytes = offset.to_le_bytes().to_vec();
+    offset_bytes.resize(block_size, 0);
+
+    let initial_key = xor(&master_key, &offset_bytes);
+    let mut subkeys = vec![initial_key];
 
     // The first subkey is not the master key, but derived from it.
-    for _ in 0..rounds {
+    for i in 1..count {
         let mut hasher = Hasher::new();
         let mut subkey = vec![0_u8; block_size];
 
         hasher
-            .update(&prev_subkey)
+            .update(&subkeys[i - 1])
             .finalize_xof()
             .read_exact(&mut subkey)
             .unwrap(); // TODO: Handle error
 
-        prev_subkey = subkey.clone(); // TODO: Remove clone for efficiency
         subkeys.push(subkey);
     }
 
     subkeys
 }
 
-/// XORs two byte arrays together
+/// XORs two byte arrays together. If the arrays are different lengths, the output will be the length
+/// of the shorter array.
 fn xor(a: &[u8], b: &[u8]) -> Vec<u8> {
     a.iter().zip(b.iter()).map(|(a, b)| a ^ b).collect()
 }
