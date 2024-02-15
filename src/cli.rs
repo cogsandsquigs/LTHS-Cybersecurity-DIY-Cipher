@@ -46,9 +46,9 @@ impl KeySize {
     /// Get the number of rounds to use
     pub fn rounds(&self) -> usize {
         match self {
-            KeySize::Bits256 => 2,
-            KeySize::Bits384 => 4,
-            KeySize::Bits512 => 8,
+            KeySize::Bits256 => 14,
+            KeySize::Bits384 => 16,
+            KeySize::Bits512 => 18,
         }
     }
 }
