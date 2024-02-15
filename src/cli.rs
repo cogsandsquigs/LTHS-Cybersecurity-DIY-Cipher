@@ -58,11 +58,15 @@ impl KeySize {
 pub enum Action {
     /// Encrypt a string
     Encrypt {
-        /// The string to encrypt
+        /// The file to encrypt
         #[arg(required = true)]
-        input: String,
+        input_file: String,
     },
 
     /// Decrypt a string
-    Decrypt {},
+    Decrypt {
+        // The file to decrypt
+        #[arg(required = true)]
+        input_file: String,
+    },
 }
