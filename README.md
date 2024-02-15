@@ -1,4 +1,4 @@
-# LTHS-Cybersecurity-DIY-Cypher
+# LTHS Cybersecurity DIY Cipher
 
 The cypher I made for my cybersecurity class in our encryption unit.
 
