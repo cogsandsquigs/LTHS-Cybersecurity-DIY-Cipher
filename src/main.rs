@@ -1,47 +1,49 @@
 mod cli;
-
-use std::io::Read;
+mod tests;
 
 use blake3::Hasher;
 use clap::Parser;
 use cli::{Action, Args, KeySize};
+use std::io::Read;
 
 fn main() {
     let args = Args::parse();
 
-    match args.action {
-        Action::Encrypt { input_file } => {
-            println!("Encrypting input with a {}-bit key", args.key_size as u16);
+    let mut file = std::fs::File::open(&args.input_file).unwrap();
+    let mut input = Vec::new();
+    file.read_to_end(&mut input).unwrap();
 
-            let mut file = std::fs::File::open(input_file).unwrap();
-            let mut input = Vec::new();
-            file.read_to_end(&mut input).unwrap();
+    let key = args.key.as_bytes();
 
-            let output = encrypt(args.key, &input, args.key_size);
+    let output = match args.action {
+        Action::Encrypt => {
+            println!(
+                "Encrypting file '{}' and outputing to '{}'...",
+                args.input_file.display(),
+                args.output_file.display()
+            );
 
-            // Send output to file
-            std::fs::write("output.enc", output).unwrap();
-
-            println!("Encrypted input and saved to 'output.enc'");
+            encrypt(key, &input, args.key_size)
         }
+        Action::Decrypt => {
+            println!(
+                "Decrypting file '{}' and outputing to '{}'...",
+                args.input_file.display(),
+                args.output_file.display()
+            );
 
-        Action::Decrypt { input_file } => {
-            println!("Decrypting input from file");
-
-            let mut file = std::fs::File::open(input_file).unwrap();
-            let mut input = Vec::new();
-            file.read_to_end(&mut input).unwrap();
-
-            let output = decrypt(args.key, &input, args.key_size);
-
-            // Send output to file
-            std::fs::write("output.dec", output).unwrap();
+            decrypt(key, &input, args.key_size)
         }
-    }
+    };
+
+    // Send output to file
+    std::fs::write(&args.output_file, output).unwrap(); // TODO: Handle error
+
+    println!("Done!");
 }
 
 /// Encrypts the input with the given key and key size
-fn encrypt(key: String, input: &[u8], key_size: KeySize) -> Vec<u8> {
+fn encrypt(key: &[u8], input: &[u8], key_size: KeySize) -> Vec<u8> {
     let (block_size, rounds, mut input, block_keys) = prepare_input(key, input, key_size);
 
     for (block_idx, (block, block_keys)) in input.iter_mut().zip(block_keys).enumerate() {
@@ -49,8 +51,8 @@ fn encrypt(key: String, input: &[u8], key_size: KeySize) -> Vec<u8> {
         let round_keys = derive_subkeys(block_keys, block_size, rounds, block_idx);
 
         for (round_idx, round_key) in round_keys.iter().enumerate() {
-            *block = xor(block, round_key);
-            block.rotate_left((block_idx + round_idx) % block_size)
+            *block = xor(block, round_key); // XOR the block with the round key
+            block.rotate_left((block_idx + round_idx) % block_size) // Rotate the block left by the block index to confuse the output
         }
     }
 
@@ -58,7 +60,7 @@ fn encrypt(key: String, input: &[u8], key_size: KeySize) -> Vec<u8> {
 }
 
 /// Encrypts the input with the given key and key size
-fn decrypt(key: String, input: &[u8], key_size: KeySize) -> Vec<u8> {
+fn decrypt(key: &[u8], input: &[u8], key_size: KeySize) -> Vec<u8> {
     let (block_size, rounds, mut input, block_keys) = prepare_input(key, input, key_size);
 
     for (block_idx, (block, block_keys)) in input.iter_mut().zip(block_keys).enumerate() {
@@ -66,6 +68,8 @@ fn decrypt(key: String, input: &[u8], key_size: KeySize) -> Vec<u8> {
         let round_keys = derive_subkeys(block_keys, block_size, rounds, block_idx);
 
         for (round_idx, round_key) in round_keys.iter().enumerate().rev() {
+            // Undo the steps in reverse order
+
             block.rotate_right((block_idx + round_idx) % block_size);
             *block = xor(block, round_key);
         }
@@ -83,7 +87,7 @@ fn decrypt(key: String, input: &[u8], key_size: KeySize) -> Vec<u8> {
 
 /// From the input, it returns, in order: The block size, the number of rounds, the input split into blocks, and the block keys.
 fn prepare_input(
-    key: String,
+    key: &[u8],
     input: &[u8],
     key_size: KeySize,
 ) -> (usize, usize, Vec<Vec<u8>>, Vec<Vec<u8>>) {
@@ -115,8 +119,7 @@ fn prepare_input(
 }
 
 // Gets the master key by hashing the input key with blake3 at sizes 256, 384, and 512 bits
-fn get_master_key(key: String, key_size: KeySize) -> Vec<u8> {
-    let key = key.as_bytes();
+fn get_master_key(key: &[u8], key_size: KeySize) -> Vec<u8> {
     let mut hasher = Hasher::new();
     let mut master_key = vec![0_u8; key_size.block_size()];
 

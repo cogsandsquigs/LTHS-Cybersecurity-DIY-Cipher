@@ -1,4 +1,5 @@
 use clap::{Parser, ValueEnum};
+use std::path::PathBuf;
 
 /// Encrypts and decrypts a string using my own DIY cipher
 #[derive(Parser, Debug)]
@@ -15,6 +16,14 @@ pub struct Args {
     /// The size of the key to use. Either 256, 384, or 512
     #[arg(short = 's', long, value_enum, default_value = "256")]
     pub key_size: KeySize,
+
+    /// The input file to use
+    #[arg(short, long)]
+    pub input_file: PathBuf,
+
+    /// The output file to use
+    #[arg(short, long, default_value = "output.txt")]
+    pub output_file: PathBuf,
 }
 
 /// The different key sizes available
@@ -57,16 +66,8 @@ impl KeySize {
 #[derive(Parser, Debug)]
 pub enum Action {
     /// Encrypt a string
-    Encrypt {
-        /// The file to encrypt
-        #[arg(required = true)]
-        input_file: String,
-    },
+    Encrypt,
 
     /// Decrypt a string
-    Decrypt {
-        // The file to decrypt
-        #[arg(required = true)]
-        input_file: String,
-    },
+    Decrypt,
 }
