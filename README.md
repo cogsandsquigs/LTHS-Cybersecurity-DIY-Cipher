@@ -21,7 +21,7 @@ Currently, the cypher works like this:
 3. Each block generates it's own key by XORing the master key with the block index and hashing with `blake3`.
 4. This is the start of the rounds. Each round generates it's own key by XORing the block key with the round index and hashing with `blake3`
 5. Each chunk is XORed with the key.
-6. The chunk shifted right by 1 bit + the round number + the offest from the starting chunk
+6. The chunk rotated left by 1 bit + the round number + the offest from the starting chunk
 7. Steps 4-6 repeat for a total of 14, 16, or 18 rounds (depending on key size).
 8. The result is written to the output file.
 
