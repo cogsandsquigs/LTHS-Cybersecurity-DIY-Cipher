@@ -63,9 +63,9 @@ fn encrypt(key: &[u8], input: &[u8], key_size: KeySize) -> Vec<u8> {
 fn decrypt(key: &[u8], input: &[u8], key_size: KeySize) -> Vec<u8> {
     let (block_size, rounds, mut input, block_keys) = prepare_input(key, input, key_size);
 
-    for (block_idx, (block, block_keys)) in input.iter_mut().zip(block_keys).enumerate() {
+    for (block_idx, (block, block_key)) in input.iter_mut().zip(block_keys).enumerate() {
         // Get the round keys for this block. Note that they are offset by XORing with the block index.
-        let round_keys = derive_subkeys(block_keys, block_size, rounds, block_idx);
+        let round_keys = derive_subkeys(block_key, block_size, rounds, block_idx);
 
         for (round_idx, round_key) in round_keys.iter().enumerate().rev() {
             // Undo the steps in reverse order
