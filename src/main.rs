@@ -6,6 +6,9 @@ use clap::Parser;
 use cli::{Action, Args, KeySize};
 use std::io::Read;
 
+/// The S-Box and its inverse for the AES algorithm as (sbox, inverse_sbox).
+const SBOX_TUPLES: ([u8; 256], [u8; 256]) = initialize_aes_sbox();
+
 fn main() {
     let args = Args::parse();
 
@@ -51,6 +54,11 @@ fn encrypt(key: &[u8], input: &[u8], key_size: KeySize) -> Vec<u8> {
         let round_keys = derive_subkeys(block_keys, block_size, rounds, block_idx);
 
         for (round_idx, round_key) in round_keys.iter().enumerate() {
+            // Substitute each byte with the S-Box
+            for byte in block.iter_mut() {
+                *byte = SBOX_TUPLES.0[*byte as usize];
+            }
+
             *block = xor(block, round_key); // XOR the block with the round key
             block.rotate_left((block_idx + round_idx) % block_size) // Rotate the block left by the block index to confuse the output
         }
@@ -70,8 +78,13 @@ fn decrypt(key: &[u8], input: &[u8], key_size: KeySize) -> Vec<u8> {
         for (round_idx, round_key) in round_keys.iter().enumerate().rev() {
             // Undo the steps in reverse order
 
-            block.rotate_right((block_idx + round_idx) % block_size);
-            *block = xor(block, round_key);
+            block.rotate_right((block_idx + round_idx) % block_size); // Undo the rotation
+            *block = xor(block, round_key); // XOR the block with the round key
+
+            // Substitute each byte with the inverse S-Box
+            for byte in block.iter_mut() {
+                *byte = SBOX_TUPLES.1[*byte as usize];
+            }
         }
     }
 
@@ -169,4 +182,41 @@ fn derive_subkeys(
 /// of the shorter array.
 fn xor(a: &[u8], b: &[u8]) -> Vec<u8> {
     a.iter().zip(b.iter()).map(|(a, b)| a ^ b).collect()
+}
+
+/// Initializes the AES S-Box and its inverse as (sbox, inverse_sbox).
+const fn initialize_aes_sbox() -> ([u8; 256], [u8; 256]) {
+    let mut p: u8 = 1;
+    let mut q: u8 = 1;
+    let mut sbox = [0; 256];
+    let mut inverse_sbox = [0; 256];
+
+    loop {
+        // Multiply p by 3
+        p = p ^ (p << 1) ^ (if p & 0x80 != 0 { 0x1B } else { 0 });
+
+        // Divide q by 3 (equals multiplication by 0xf6)
+        q ^= q << 1;
+        q ^= q << 2;
+        q ^= q << 4;
+        q ^= if q & 0x80 != 0 { 0x09 } else { 0 };
+
+        // Compute the affine transformation
+        let xformed = q ^ q.rotate_left(1) ^ q.rotate_left(2) ^ q.rotate_left(3) ^ q.rotate_left(4);
+        sbox[p as usize] = xformed ^ 0x63;
+
+        // Compute the inverse S-Box
+        inverse_sbox[sbox[p as usize] as usize] = p;
+
+        // loop invariant: p * q == 1 in the Galois field
+        if p == 1 {
+            break;
+        }
+    }
+
+    // 0 is a special case since it has no inverse
+    sbox[0] = 0x63;
+    inverse_sbox[0x63] = 0;
+
+    (sbox, inverse_sbox)
 }
