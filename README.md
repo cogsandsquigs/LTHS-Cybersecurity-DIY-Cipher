@@ -23,7 +23,7 @@ Currently, the cypher works like this:
 5. Each byte in the block is substituted with the corresponding byte in the AES S-Box.
 6. Each block is XORed with the key.
 7. The block rotated left by `1 + <the round index> + <the block index>` bytes
-8. Steps 4-6 repeat for a total of 14, 16, or 18 rounds (depending on key size).
+8. Steps 4-7 repeat for a total of 14, 16, or 18 rounds (depending on key size).
 9. The result is written to the output file.
 
 Decryption works by reversing the steps.
