@@ -28,6 +28,7 @@ fn main() {
 
             encrypt(key, &input, args.key_size)
         }
+
         Action::Decrypt => {
             println!(
                 "Decrypting file '{}' and outputing to '{}'...",
